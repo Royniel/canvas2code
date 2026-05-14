@@ -9,8 +9,6 @@ export default function Home() {
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [framework, setFramework] = useState("React");
-  
-  // NEW: State to track if the code has just been copied
   const [copied, setCopied] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,12 +53,10 @@ export default function Home() {
     }
   };
 
-  // NEW: The copy function
   const handleCopy = () => {
     if (code) {
       navigator.clipboard.writeText(code);
       setCopied(true);
-      // Reset the button back to "Copy" after 2 seconds
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -91,52 +87,69 @@ export default function Home() {
             </select>
           </div>
 
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-700 rounded-lg p-10 hover:border-purple-500 transition-colors">
+          {/* UPGRADED: Bulletproof Label Wrapper Dropzone */}
+          <label 
+            className="relative flex flex-col items-center justify-center border-2 border-dashed border-neutral-700 rounded-lg p-10 hover:border-purple-500 transition-all bg-neutral-900/50 hover:bg-neutral-800/50 cursor-pointer group"
+          >
+            <div className="flex flex-col items-center space-y-3 pointer-events-none">
+              <div className="p-3 bg-purple-500/10 rounded-full text-purple-400 group-hover:bg-purple-500/20 transition-colors">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-neutral-200">
+                  {file ? file.name : "Click to upload an image"}
+                </p>
+                <p className="text-xs text-neutral-500 mt-1">PNG, JPG, WebP up to 10MB</p>
+              </div>
+            </div>
+            
             <input 
+              id="file-upload"
               type="file" 
               accept="image/*" 
               onChange={handleFileChange}
-              className="text-sm text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 cursor-pointer"
+              className="sr-only" 
             />
-          </div>
+          </label>
 
           {preview && (
-            <div className="flex flex-col items-center space-y-4">
+            <div className="flex flex-col items-center">
               <img src={preview} alt="Upload preview" className="max-h-64 rounded-lg shadow-md" />
-              
-              {/* The Circular Spinner Button */}
-              <button 
-                onClick={handleGenerate}
-                disabled={loading}
-                className="relative w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-neutral-900 disabled:border disabled:border-purple-500/30 text-white font-bold rounded-lg transition-all overflow-hidden flex justify-center items-center h-[52px]"
-              >
-                {loading ? (
-                  <div className="flex items-center space-x-3">
-                    <style>{`
-                      .spinner-circle {
-                        stroke-dasharray: 1, 200;
-                        stroke-dashoffset: 0;
-                        animation: dash 1.5s ease-in-out infinite;
-                      }
-                      @keyframes dash {
-                        0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
-                        50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35px; }
-                        100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124px; }
-                      }
-                    `}</style>
-                    <svg className="animate-spin h-5 w-5 text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" viewBox="25 25 50 50">
-                      <circle className="spinner-circle" cx="50" cy="50" r="20" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
-                    </svg>
-                    <span className="text-purple-400 font-mono text-sm uppercase tracking-widest animate-pulse">
-                      Processing
-                    </span>
-                  </div>
-                ) : (
-                  `Generate ${framework} Code`
-                )}
-              </button>
             </div>
           )}
+
+          <button 
+            onClick={handleGenerate}
+            disabled={loading || !file} 
+            className="relative w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-neutral-800 disabled:text-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-transparent text-white font-bold rounded-lg transition-all overflow-hidden flex justify-center items-center h-[52px]"
+          >
+            {loading ? (
+              <div className="flex items-center space-x-3">
+                <style>{`
+                  .spinner-circle {
+                    stroke-dasharray: 1, 200;
+                    stroke-dashoffset: 0;
+                    animation: dash 1.5s ease-in-out infinite;
+                  }
+                  @keyframes dash {
+                    0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+                    50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35px; }
+                    100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124px; }
+                  }
+                `}</style>
+                <svg className="animate-spin h-5 w-5 text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" viewBox="25 25 50 50">
+                  <circle className="spinner-circle" cx="50" cy="50" r="20" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+                </svg>
+                <span className="text-purple-400 font-mono text-sm uppercase tracking-widest animate-pulse">
+                  Processing
+                </span>
+              </div>
+            ) : (
+              `Generate ${framework} Code`
+            )}
+          </button>
 
           {error && (
             <div className="p-4 bg-red-900/30 border border-red-800 text-red-300 rounded-lg">
@@ -144,7 +157,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* UPGRADED: Results Area with Copy Button */}
           {code && (
             <div className="mt-8 space-y-2">
               <div className="flex justify-between items-center">
@@ -160,13 +172,11 @@ export default function Home() {
                 >
                   {copied ? (
                     <>
-                      {/* Checkmark Icon */}
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                       <span>Copied!</span>
                     </>
                   ) : (
                     <>
-                      {/* Copy Document Icon */}
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                       <span>Copy Code</span>
                     </>
