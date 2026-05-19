@@ -43,3 +43,5 @@ uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.44.0
 websockets==16.0
+langgraph==0.2.60
+langchain-core==0.3.28

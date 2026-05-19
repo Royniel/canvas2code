@@ -10,6 +10,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [framework, setFramework] = useState("React");
   const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -28,6 +29,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setCopied(false);
+    setCode(null);
+    setStatus("");
 
     const formData = new FormData();
     formData.append("file", file);
@@ -39,17 +42,40 @@ export default function Home() {
         body: formData,
       });
 
-      const data = await response.json();
+      if (!response.body) {
+        setError("No response body from backend.");
+        return;
+      }
 
-      if (data.status === "success") {
-        setCode(data.code);
-      } else {
-        setError(data.message || "Failed to generate code.");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+
+        for (const event of events) {
+          if (!event.startsWith("data: ")) continue;
+          const payload = JSON.parse(event.slice(6));
+          if (payload.type === "status") {
+            setStatus(payload.message);
+          } else if (payload.type === "code") {
+            setCode(payload.content);
+          } else if (payload.type === "error") {
+            setError(payload.message);
+          }
+        }
       }
     } catch (err) {
       setError("Cannot connect to backend. Is the Python server running?");
     } finally {
       setLoading(false);
+      setStatus("");
     }
   };
 
@@ -143,7 +169,7 @@ export default function Home() {
                   <circle className="spinner-circle" cx="50" cy="50" r="20" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
                 </svg>
                 <span className="text-purple-400 font-mono text-sm uppercase tracking-widest animate-pulse">
-                  Processing
+                  {status || "Processing"}
                 </span>
               </div>
             ) : (

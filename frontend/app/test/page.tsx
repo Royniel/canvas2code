@@ -1,157 +1,98 @@
 import React from 'react';
 
-const SouthIndianChart = () => {
-    const chartSize = 500; // Fixed width and height for the chart in pixels
-    const borderWidth = 3; // Thickness of the chart lines
-    const lineColor = '#c09a5b'; // Gold-brown color for lines and borders
-    const bgColor = '#fdfaf1'; // Light cream background color
-
-    // Calculate the length of the main diagonals for a square of `chartSize`
-    const mainDiagonalLength = Math.sqrt(chartSize * chartSize * 2);
-
-    // Data for all celestial body and sign number placements
-    // Each object defines content, its Tailwind CSS color class, font size, and
-    // top/left percentages for absolute positioning within the chart container.
-    const placements = [
-        // House (Top-center rhombus)
-        { content: 'Su', color: 'text-orange-400', top: '10%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'Mo', color: 'text-indigo-400', top: '14%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: '1', color: 'text-violet-800', top: '7%', left: '60%', fontSize: 'text-xs font-bold' },
-        { content: '12', color: 'text-violet-800', top: '7%', left: '30%', fontSize: 'text-xs font-bold' },
-
-        // House (Right-center rhombus)
-        { content: 'Ne', color: 'text-teal-500', top: '48%', left: '76%', fontSize: 'text-sm font-semibold' },
-        { content: '1', color: 'text-violet-800', top: '30%', left: '88%', fontSize: 'text-xs font-bold' },
-        { content: '9', color: 'text-violet-800', top: '60%', left: '88%', fontSize: 'text-xs font-bold' },
-
-        // House (Bottom-center rhombus) - Only sign numbers present
-        { content: '10', color: 'text-violet-800', top: '90%', left: '60%', fontSize: 'text-xs font-bold' },
-        { content: '9', color: 'text-violet-800', top: '90%', left: '30%', fontSize: 'text-xs font-bold' },
-
-        // House (Left-center rhombus)
-        { content: 'Pl', color: 'text-purple-800', top: '48%', left: '10%', fontSize: 'text-sm font-semibold' },
-        { content: '6', color: 'text-violet-800', top: '60%', left: '7%', fontSize: 'text-xs font-bold' },
-        { content: '7', color: 'text-violet-800', top: '30%', left: '7%', fontSize: 'text-xs font-bold' },
-
-        // House (Top-left triangle)
-        { content: '3', color: 'text-violet-800', top: '7%', left: '7%', fontSize: 'text-xs font-bold' },
-        { content: '4', color: 'text-violet-800', top: '17%', left: '7%', fontSize: 'text-xs font-bold' },
-
-        // House (Bottom-left triangle)
-        { content: '6', color: 'text-violet-800', top: '80%', left: '7%', fontSize: 'text-xs font-bold' },
-        { content: '7', color: 'text-violet-800', top: '90%', left: '7%', fontSize: 'text-xs font-bold' },
-
-        // House (Top-right triangle)
-        { content: '12', color: 'text-violet-800', top: '17%', left: '88%', fontSize: 'text-xs font-bold' },
-        { content: '1', color: 'text-violet-800', top: '7%', left: '88%', fontSize: 'text-xs font-bold' },
-
-        // House (Bottom-right triangle)
-        { content: '9', color: 'text-violet-800', top: '80%', left: '88%', fontSize: 'text-xs font-bold' },
-        { content: '10', color: 'text-violet-800', top: '90%', left: '88%', fontSize: 'text-xs font-bold' },
-
-        // House (Central Rhombus)
-        { content: 'Ve', color: 'text-fuchsia-500', top: '38%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'Ju®', color: 'text-orange-500', top: '42%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'Sa®', color: 'text-slate-500', top: '46%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'Ra®', color: 'text-blue-500', top: '50%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'Ur', color: 'text-purple-500', top: '54%', left: '46%', fontSize: 'text-sm font-semibold' },
-        { content: 'A2c', color: 'text-violet-800', top: '58%', left: '46%', fontSize: 'text-sm font-bold' }, // A2c (Ascendant) is typically bold
-        { content: '5', color: 'text-violet-800', top: '30%', left: '30%', fontSize: 'text-xs font-bold' }, // Sign 5 (top-left of rhombus)
-        { content: '11', color: 'text-violet-800', top: '30%', left: '60%', fontSize: 'text-xs font-bold' }, // Sign 11 (top-right of rhombus)
-        { content: '8', color: 'text-violet-800', top: '70%', left: '45%', fontSize: 'text-xs font-bold' }, // Sign 8 (bottom of rhombus)
-
-        // House (Mid-left quadrilateral, between Central and Left-Center)
-        { content: 'Me', color: 'text-emerald-500', top: '70%', left: '26%', fontSize: 'text-sm font-semibold' },
-        { content: 'Ma', color: 'text-red-600', top: '74%', left: '26%', fontSize: 'text-sm font-semibold' },
-        { content: 'Ke®', color: 'text-amber-800', top: '78%', left: '26%', fontSize: 'text-sm font-semibold' },
-    ];
-
-    return (
-        <div
-            className="relative border-[3px] border-[#c09a5b] select-none"
-            style={{
-                width: `${chartSize}px`,
-                height: `${chartSize}px`,
-                backgroundColor: bgColor,
-                boxSizing: 'content-box', // Ensure border doesn't add to the total width/height
-                fontFamily: 'sans-serif', // Modern, professional default font
-            }}
-        >
-            {/* Corner circles (small decorative rings at the outer corners) */}
-            <div className="absolute w-4 h-4 rounded-full border-[2px] border-[#c09a5b] -top-2 -left-2 bg-transparent"></div>
-            <div className="absolute w-4 h-4 rounded-full border-[2px] border-[#c09a5b] -top-2 -right-2 bg-transparent"></div>
-            <div className="absolute w-4 h-4 rounded-full border-[2px] border-[#c09a5b] -bottom-2 -left-2 bg-transparent"></div>
-            <div className="absolute w-4 h-4 rounded-full border-[2px] border-[#c09a5b] -bottom-2 -right-2 bg-transparent"></div>
-
-            {/* Inner rotated square (diamond shape) which forms the central grid structure */}
-            <div
-                className="absolute bg-transparent border-[3px] border-[#c09a5b]"
-                style={{
-                    width: `${chartSize * Math.SQRT1_2}px`, // Side length of a square rotated 45 degrees
-                    height: `${chartSize * Math.SQRT1_2}px`,
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%) rotate(45deg)',
-                }}
-            ></div>
-
-            {/* Main diagonal lines (connecting outer corners of the chart) */}
-            <div
-                className="absolute bg-[#c09a5b]"
-                style={{
-                    width: `${mainDiagonalLength}px`,
-                    height: `${borderWidth}px`,
-                    top: '50%',
-                    left: '50%',
-                    transform: `translate(-50%, -50%) rotate(45deg)`,
-                }}
-            ></div>
-            <div
-                className="absolute bg-[#c09a5b]"
-                style={{
-                    width: `${mainDiagonalLength}px`,
-                    height: `${borderWidth}px`,
-                    top: '50%',
-                    left: '50%',
-                    transform: `translate(-50%, -50%) rotate(-45deg)`,
-                }}
-            ></div>
-
-            {/* Watermark: `astrotalk.com` repeated across the background */}
-            {Array.from({ length: 4 }).map((_, i) => (
-                Array.from({ length: 4 }).map((_, j) => (
-                    <div
-                        key={`wm-${i}-${j}`}
-                        className="absolute text-gray-300 font-bold opacity-10 pointer-events-none text-2xl"
-                        style={{
-                            top: `${(i * 33) + 15}%`, // Spacing for rows
-                            left: `${(j * 33) + 15}%`, // Spacing for columns
-                            transform: `translate(-50%, -50%) rotate(-45deg)`, // Rotate and center
-                            whiteSpace: 'nowrap', // Prevent text from wrapping
-                        }}
-                    >
-                        astrotalk.com
-                    </div>
-                ))
-            ))}
-
-            {/* Render all planet and sign number placements based on the `placements` data */}
-            {placements.map((p, index) => (
-                <div
-                    key={index}
-                    className={`absolute ${p.color} ${p.fontSize} leading-none`}
-                    style={{ top: p.top, left: p.left, transform: 'translate(-50%, -50%)' }} // Center text using translate
-                >
-                    {p.content}
-                </div>
-            ))}
-
-            {/* Copyright text at the bottom right corner */}
-            <div className="absolute bottom-1 right-2 text-[8px] text-gray-500 font-medium">
-                ©astrotalk.com
+const PaymentDetail = () => {
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans antialiased text-gray-800">
+      {/* Top Status Bar and Header Section */}
+      <div className="bg-white pb-4 shadow-sm">
+        {/* Top Status Bar */}
+        <div className="flex justify-between items-center px-4 py-2 text-sm">
+          <div className="font-bold">4:08</div>
+          <div className="flex items-center space-x-1.5 text-gray-500">
+            {/* Signal - simplified with 4 bars */}
+            <div className="flex space-x-0.5 items-end h-3.5">
+              <span className="w-1 h-1.5 bg-gray-500 rounded-[0.5px]"></span>
+              <span className="w-1 h-2 bg-gray-500 rounded-[0.5px]"></span>
+              <span className="w-1 h-2.5 bg-gray-500 rounded-[0.5px]"></span>
+              <span className="w-1 h-3 bg-gray-300 rounded-[0.5px]"></span> {/* Last bar lighter */}
             </div>
+            {/* Wifi Icon */}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.5 5.5 0 017.424 0M5.475 12.176a9 9 0 0113.049 0m-2.924 2.923a2.5 2.5 0 01-3.6 0M12 17.5V18" />
+            </svg>
+            {/* Battery Icon */}
+            <div className="relative w-7 h-4 border border-gray-400 rounded-[3px] flex items-center justify-center">
+              {/* Fill for 23% */}
+              <div className="absolute left-[1.5px] top-[1.5px] w-[5.5px] h-[10px] bg-gray-700 rounded-[1px]"></div>
+              {/* Battery percentage text */}
+              <span className="text-[10px] font-medium text-white relative z-10 -top-[0.5px]">23</span>
+              {/* Battery "nub" on the right */}
+              <div className="absolute right-[-2.5px] top-1 w-[2px] h-2 bg-gray-400 rounded-r-[1px]"></div>
+            </div>
+          </div>
         </div>
-    );
+
+        {/* Header with Back Button and Title */}
+        <div className="flex flex-col items-center pt-2">
+          <div className="flex items-center justify-center w-full relative mb-1">
+            <button className="absolute left-4 text-gray-800">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <h1 className="text-lg font-semibold">Payment</h1>
+          </div>
+          <p className="text-gray-500 text-sm">April 04, 2026, 9:51 PM</p>
+        </div>
+      </div>
+
+      {/* Main Payment Card */}
+      <div className="bg-white mx-4 mt-4 p-5 rounded-xl shadow-sm text-center">
+        <p className="text-base font-medium text-gray-900 mb-2">Kristy Carabello</p>
+        <p className="text-5xl font-bold text-gray-900 mb-2 leading-none">+$1,769.44</p>
+        <p className="text-gray-600 text-sm italic mb-6">"Vertige / March. Thank you!"</p>
+        <button className="text-blue-600 border border-blue-600 rounded-full px-5 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+          More details
+        </button>
+      </div>
+
+      {/* Pay or Request Button */}
+      <div className="px-4 mt-8">
+        <button className="w-full bg-blue-600 text-white font-semibold py-4 rounded-full text-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">
+          Pay or request
+        </button>
+      </div>
+
+      {/* Likes and Comments Card */}
+      <div className="bg-white mx-4 mt-8 p-5 rounded-xl shadow-sm">
+        <h2 className="text-gray-900 text-base font-medium mb-3">Likes and Comments</h2>
+        <div className="flex space-x-6 text-gray-600">
+          <div className="flex items-center space-x-1">
+            {/* Heart Icon */}
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 22l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+            <span>0</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            {/* Chat Bubble Icon */}
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+            <span>0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Status and Transaction Details Card */}
+      <div className="bg-white mx-4 mt-4 p-5 rounded-xl shadow-sm mb-8">
+        <h2 className="text-gray-900 text-base font-medium mb-3">Status</h2>
+        <p className="text-gray-900 font-bold mb-4">Complete</p>
+
+        <h2 className="text-gray-900 text-base font-medium mb-3">Transaction details</h2>
+        <div className="flex items-center text-gray-600">
+          <p className="text-sm mr-2">April 04, 2026, 9:51 PM</p>
+          {/* Lock Icon */}
+          <svg className="w-4 h-4 text-blue-600 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v3h8z"></path></svg>
+          <span className="text-blue-600 text-sm font-medium">Private</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-export default SouthIndianChart;
+export default PaymentDetail;
