@@ -4,6 +4,8 @@ from typing import Optional
 from google import genai
 from google.genai import types
 
+from usage import current_node_type, current_thread_id, tracker
+
 from ._mime import detect_mime
 
 
@@ -38,4 +40,17 @@ class GeminiProvider:
             model=self._model,
             contents=contents,
         )
+
+        usage = getattr(response, "usage_metadata", None)
+        await tracker.log_usage(
+            provider=self.name,
+            model=self._model,
+            node_type=current_node_type.get(),
+            usage_dict={
+                "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+                "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+            },
+            thread_id=current_thread_id.get(),
+        )
+
         return response.text or ""

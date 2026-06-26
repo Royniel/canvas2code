@@ -10,6 +10,7 @@ from playwright.async_api import Browser
 from providers import PROVIDERS
 from providers.judge import JudgeProvider
 from rendering import render_code_to_screenshot
+from usage import check_budget, node_context, thread_context
 
 JUDGE = JudgeProvider()
 MAX_ITERATIONS = 3
@@ -80,11 +81,17 @@ def _make_provider_node(provider_name: str):
     provider = PROVIDERS[provider_name]
 
     async def node(state: GraphState, config: RunnableConfig) -> dict:
+        thread_id = config["configurable"].get("thread_id", "")
+
+        if not await check_budget(provider_name):
+            return {"errors": {provider_name: "budget_exceeded"}}
+
         try:
             prompt = INITIAL_PROMPT.format(framework=state["framework"])
-            code = await provider.generate(
-                state.get("image_bytes"), state["framework"], prompt
-            )
+            async with thread_context(thread_id):
+                code = await provider.generate(
+                    state.get("image_bytes"), state["framework"], prompt
+                )
             return {"outputs": {provider_name: code}, "llm_call_count": 1}
         except Exception as e:
             return {"errors": {provider_name: str(e)}, "llm_call_count": 1}
@@ -138,8 +145,15 @@ async def judge_outputs(state: GraphState, config: RunnableConfig) -> dict:
     if not screenshots:
         return {}
 
+    thread_id = config["configurable"].get("thread_id", "")
     image_bytes = state["image_bytes"]
     framework = state["framework"]
+
+    if not await check_budget("judge"):
+        # Cap all providers so the loop exits with original outputs.
+        return {
+            "iteration_count": {p: MAX_ITERATIONS for p in screenshots},
+        }
 
     async def judge_one(provider: str, screenshot: bytes):
         try:
@@ -153,9 +167,10 @@ async def judge_outputs(state: GraphState, config: RunnableConfig) -> dict:
         except Exception as e:
             return provider, None, str(e)
 
-    results = await asyncio.gather(
-        *[judge_one(p, s) for p, s in screenshots.items()]
-    )
+    async with thread_context(thread_id):
+        results = await asyncio.gather(
+            *[judge_one(p, s) for p, s in screenshots.items()]
+        )
 
     judgments: Dict[str, Judgment] = {}
     iteration_cap: Dict[str, int] = {}
@@ -178,6 +193,7 @@ def _make_refine_loop_node(browser: Browser):
         outputs = state.get("outputs") or {}
         judgments = state.get("judgments") or {}
         iteration_counts = state.get("iteration_count") or {}
+        thread_id = config["configurable"].get("thread_id", "")
 
         pending = [
             p
@@ -192,6 +208,21 @@ def _make_refine_loop_node(browser: Browser):
         image_bytes = state["image_bytes"]
 
         async def refine_one(provider_name: str):
+            if not await check_budget(provider_name):
+                return {
+                    "provider": provider_name,
+                    "error": "budget_exceeded",
+                    "iteration": MAX_ITERATIONS,
+                    "llm_calls": 0,
+                }
+            if not await check_budget("judge"):
+                return {
+                    "provider": provider_name,
+                    "error": "budget_exceeded",
+                    "iteration": MAX_ITERATIONS,
+                    "llm_calls": 0,
+                }
+
             provider = PROVIDERS[provider_name]
             old_code = outputs[provider_name]
             old_judgment = judgments[provider_name]
@@ -205,15 +236,20 @@ def _make_refine_loop_node(browser: Browser):
                     previous_code=old_code,
                     critique=old_judgment["critique"],
                 )
-                new_code = await provider.generate(image_bytes, framework, prompt)
+                async with thread_context(thread_id):
+                    async with node_context("refine"):
+                        new_code = await provider.generate(
+                            image_bytes, framework, prompt
+                        )
                 new_screenshot = await render_code_to_screenshot(
                     code=new_code, framework=framework, browser=browser
                 )
-                new_judgment = await JUDGE.judge(
-                    original_sketch=image_bytes,
-                    rendered_screenshot=new_screenshot,
-                    framework=framework,
-                )
+                async with thread_context(thread_id):
+                    new_judgment = await JUDGE.judge(
+                        original_sketch=image_bytes,
+                        rendered_screenshot=new_screenshot,
+                        framework=framework,
+                    )
                 new_judgment["iteration"] = new_iter
 
                 if new_judgment["score"] < old_score:
@@ -248,6 +284,7 @@ def _make_refine_loop_node(browser: Browser):
         screenshots_update: Dict[str, bytes] = {}
         judgments_update: Dict[str, Judgment] = {}
         iterations_update: Dict[str, int] = {}
+        errors_update: Dict[str, str] = {}
         total_calls = 0
 
         for r in results:
@@ -256,6 +293,8 @@ def _make_refine_loop_node(browser: Browser):
             iterations_update[p] = r["iteration"]
 
             if r.get("error"):
+                if r["error"] == "budget_exceeded":
+                    errors_update[p] = "budget_exceeded"
                 continue
             if r.get("kept_old"):
                 judgments_update[p] = r["judgment"]
@@ -273,6 +312,8 @@ def _make_refine_loop_node(browser: Browser):
             update["judgments"] = judgments_update
         if iterations_update:
             update["iteration_count"] = iterations_update
+        if errors_update:
+            update["errors"] = errors_update
         return update
 
     return refine_loop
@@ -283,7 +324,11 @@ async def refine_code(state: GraphState, config: RunnableConfig) -> dict:
         provider_name = state.get("selected_provider")
         if not provider_name or provider_name not in PROVIDERS:
             return {"error": "No valid provider selected. Call /select-winner first."}
+        if not await check_budget(provider_name):
+            return {"error": "budget_exceeded"}
+
         provider = PROVIDERS[provider_name]
+        thread_id = config["configurable"].get("thread_id", "")
 
         messages = state.get("messages") or []
         latest_user = next(
@@ -298,7 +343,10 @@ async def refine_code(state: GraphState, config: RunnableConfig) -> dict:
             current_code=state.get("current_code") or "",
             latest_message=latest_user,
         )
-        refined = await provider.generate(None, state["framework"], prompt)
+        async with thread_context(thread_id):
+            async with node_context("refine"):
+                refined = await provider.generate(None, state["framework"], prompt)
+
         return {
             "current_code": refined,
             "messages": [{"role": "assistant", "content": "Code updated."}],

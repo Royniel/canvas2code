@@ -6,6 +6,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
+from usage import current_thread_id, tracker
+
 from ._mime import detect_mime
 
 
@@ -75,6 +77,18 @@ class JudgeProvider:
                 response_mime_type="application/json",
                 response_schema=_JudgmentSchema,
             ),
+        )
+
+        usage = getattr(response, "usage_metadata", None)
+        await tracker.log_usage(
+            provider=self.name,
+            model=self._model,
+            node_type="judge",
+            usage_dict={
+                "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+                "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+            },
+            thread_id=current_thread_id.get(),
         )
 
         text = response.text or "{}"

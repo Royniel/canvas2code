@@ -3,16 +3,21 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+import psycopg
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from playwright.async_api import async_playwright
+from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 
 from graph.builder import MAX_ITERATIONS, build_graph
+from usage import BUDGET_LIMITS, DAILY_CAP, tracker
 
 load_dotenv()
 
@@ -28,14 +33,48 @@ PROVIDER_NODE_MAP = {
 }
 
 
+async def _can_connect_postgres(db_url: str) -> bool:
+    try:
+        conn = await psycopg.AsyncConnection.connect(db_url, connect_timeout=5)
+        await conn.close()
+        return True
+    except Exception as e:
+        logger.warning("Postgres reachability check failed: %s", e)
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db_url = os.environ["DATABASE_URL"]
+    db_url = os.environ.get("DATABASE_URL")
+    use_postgres = bool(db_url) and await _can_connect_postgres(db_url)
+
+    if not db_url:
+        logger.warning(
+            "DATABASE_URL is not set; using in-memory MemorySaver. "
+            "Conversations will not persist across restarts. "
+            "For production, get a free Postgres instance at https://neon.tech."
+        )
+    elif not use_postgres:
+        logger.warning(
+            "DATABASE_URL is set but Postgres is unreachable; "
+            "falling back to in-memory MemorySaver. "
+            "Conversations will not persist across restarts."
+        )
+
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         try:
-            async with AsyncPostgresSaver.from_conn_string(db_url) as saver:
-                await saver.setup()
+            if use_postgres:
+                async with AsyncPostgresSaver.from_conn_string(db_url) as saver:
+                    await saver.setup()
+                    async with AsyncConnectionPool(conninfo=db_url) as usage_pool:
+                        tracker.bind_pool(usage_pool)
+                        await tracker.setup_schema()
+                        runtime["graph"] = build_graph(saver, browser)
+                        yield
+                        runtime["graph"] = None
+            else:
+                saver = MemorySaver()
                 runtime["graph"] = build_graph(saver, browser)
                 yield
                 runtime["graph"] = None
@@ -69,7 +108,6 @@ def _sse(event: dict) -> str:
 
 
 def _emit_judgment(provider: str, judgment: dict) -> list:
-    """Build SSE events for a single judgment result."""
     events = [
         _sse(
             {
@@ -234,6 +272,7 @@ async def generate(
                         new_screenshots = out.get("rendered_screenshots", {}) or {}
                         new_judgments = out.get("judgments", {}) or {}
                         new_iterations = out.get("iteration_count", {}) or {}
+                        new_errors = out.get("errors", {}) or {}
 
                         for provider, iter_num in new_iterations.items():
                             if iter_num <= MAX_ITERATIONS:
@@ -244,6 +283,20 @@ async def generate(
                                         "iteration": iter_num,
                                     }
                                 )
+
+                        for provider, err in new_errors.items():
+                            yield _sse(
+                                {
+                                    "type": "provider_error",
+                                    "provider": provider,
+                                    "message": err,
+                                    "stage": (
+                                        "budget"
+                                        if err == "budget_exceeded"
+                                        else "refinement"
+                                    ),
+                                }
+                            )
 
                         for provider, code in new_outputs.items():
                             yield _sse(
@@ -334,3 +387,31 @@ async def refine(req: RefineRequest):
             yield _sse({"type": "error", "message": str(e)})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/admin/usage")
+async def admin_usage(
+    x_admin_key: Optional[str] = Header(default=None, alias="X-Admin-Key"),
+):
+    expected = os.environ.get("ADMIN_KEY")
+    if not expected or x_admin_key != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    monthly: dict = {}
+    for provider in BUDGET_LIMITS.keys():
+        spend = await tracker.get_monthly_spend(provider)
+        limit = BUDGET_LIMITS.get(provider)
+        monthly[provider] = {
+            "spend_usd": float(spend),
+            "limit_usd": float(limit) if limit is not None else None,
+        }
+
+    total_calls = await tracker.get_daily_call_count()
+    recent = await tracker.get_recent_generations(limit=10)
+
+    return {
+        "monthly_spend": monthly,
+        "daily_cap_usd": float(DAILY_CAP),
+        "total_calls_today": total_calls,
+        "recent_generations": recent,
+    }

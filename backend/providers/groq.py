@@ -4,6 +4,8 @@ from typing import Optional
 
 from openai import AsyncOpenAI
 
+from usage import current_node_type, current_thread_id, tracker
+
 from ._mime import detect_mime
 
 
@@ -14,7 +16,7 @@ class GroqProvider:
     def __init__(self, model: Optional[str] = None):
         self._client: Optional[AsyncOpenAI] = None
         self._model = model or os.environ.get(
-            "GROQ_MODEL", "llama-3.2-90b-vision-preview"
+        "GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
         )
 
     @property
@@ -46,4 +48,21 @@ class GroqProvider:
             model=self._model,
             messages=[{"role": "user", "content": content}],
         )
+
+        usage = getattr(response, "usage", None)
+        await tracker.log_usage(
+            provider=self.name,
+            model=self._model,
+            node_type=current_node_type.get(),
+            usage_dict={
+                "input_tokens": (
+                    getattr(usage, "prompt_tokens", 0) if usage else 0
+                ),
+                "output_tokens": (
+                    getattr(usage, "completion_tokens", 0) if usage else 0
+                ),
+            },
+            thread_id=current_thread_id.get(),
+        )
+
         return response.choices[0].message.content or ""

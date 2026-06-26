@@ -32,7 +32,7 @@ type Provider = (typeof PROVIDERS)[number];
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   gemini: "Gemini 2.5 Flash",
-  groq: "Llama 3.2 Vision (Groq)",
+  groq: "Llama 4 Scout (Groq)",        // changed
   openrouter: "Qwen-VL (OpenRouter)",
 };
 
@@ -483,8 +483,16 @@ export default function Home() {
 
                     <div className="flex-1 min-h-[200px] max-h-[400px] overflow-auto bg-neutral-900 rounded border border-neutral-800 p-2 mb-3">
                       {ps.error ? (
-                        <div className="text-xs text-red-300 whitespace-pre-wrap">
-                          {ps.error}
+                        <div
+                          className={`text-xs whitespace-pre-wrap ${
+                            ps.error === "budget_exceeded"
+                              ? "text-yellow-300"
+                              : "text-red-300"
+                          }`}
+                        >
+                          {ps.error === "budget_exceeded"
+                            ? "Provider unavailable: monthly budget reached, resets next month."
+                            : ps.error}
                         </div>
                       ) : ps.view === "preview" && ps.screenshot ? (
                         <img
